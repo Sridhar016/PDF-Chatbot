@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+
+# Virtual environment
+venv/
+.env
+
+# Streamlit
+.streamlit/
+
+# FAISS index (local database)
+faiss_index/
+
+# Uploaded files (user-uploaded PDFs)
+uploaded/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite
+*.db
