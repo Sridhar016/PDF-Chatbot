@@ -1,12 +1,12 @@
 import os
 import streamlit as st
-from dotenv import load_dotenv  # For loading .env file
+from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
-from langchain_groq import ChatGroq  # Groq API integration
+from langchain_groq import ChatGroq
 from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
 
@@ -36,52 +36,72 @@ def load_faiss_vectore_store(path="faiss_index"):
 def build_qa_chain(vector_store_path="faiss_index"):
     vector_store = load_faiss_vectore_store(vector_store_path)
     retriever = vector_store.as_retriever()
-
-    # Load Groq API key from .env
-    groq_api_key = os.getenv("GROQ_API_KEY")
+    groq_api_key = st.secrets["GROQ_API_KEY"]
     if not groq_api_key:
-        raise ValueError("Groq API key not found in .env file.")
-
-    # Use a currently supported model (e.g., 'llama-3.1-8b-instant')
+        raise ValueError("Groq API key not found in Streamlit secrets.")
     llm = ChatGroq(groq_api_key=groq_api_key, model_name="llama-3.1-8b-instant")
-
     qa_chain = load_qa_chain(llm, chain_type="stuff")
     qa_chain = RetrievalQA(retriever=retriever, combine_documents_chain=qa_chain)
     return qa_chain
 
-
-
-
-
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
 # Streamlit UI
 st.header("Chat with PDFs")
+
 with st.sidebar:
     st.title("Menu:")
-    uploaded_file = st.file_uploader("Upload your PDF file and click Submit & Process Button", type="pdf")
+    uploaded_files = st.file_uploader(
+        "Upload your PDF files and click Submit & Process Button",
+        type="pdf",
+        accept_multiple_files=True
+    )
     if st.button("Submit & Process"):
-        if uploaded_file:
+        if uploaded_files:
             os.makedirs("uploaded", exist_ok=True)
-            pdf_path = os.path.join("uploaded", uploaded_file.name)
-            with open(pdf_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            with st.spinner("Extracting text from PDF..."):
-                text = extract_text_from_pdf(pdf_path)
-            if not text.strip():
-                st.error("Failed to extract text from PDF. Try a different file.")
+            combined_text = ""
+            for uploaded_file in uploaded_files:
+                pdf_path = os.path.join("uploaded", uploaded_file.name)
+                with open(pdf_path, "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                with st.spinner(f"Extracting text from {uploaded_file.name}..."):
+                    text = extract_text_from_pdf(pdf_path)
+                    combined_text += text + "\n\n"
+
+            if not combined_text.strip():
+                st.error("Failed to extract text from PDFs. Try different files.")
             else:
                 with st.spinner("Creating FAISS vector store..."):
-                    create_faiss_vector_store(text)
+                    create_faiss_vector_store(combined_text)
                 st.info("Initializing chatbot...")
                 qa_chain = build_qa_chain()
                 st.session_state['qa_chain'] = qa_chain
                 st.success("Chatbot is ready!")
 
+# Display chat messages from history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# Accept user input
 if 'qa_chain' in st.session_state:
-    question = st.text_input("Ask a question about the uploaded PDF:")
-    if question:
-        with st.spinner("Querying the document..."):
-            answer = st.session_state.qa_chain.run(question)
-        st.success(f"Answer: {answer}")
+    if prompt := st.chat_input("Ask a question about the uploaded PDFs:"):
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        # Get answer from QA chain
+        with st.spinner("Querying the documents..."):
+            answer = st.session_state.qa_chain.run(prompt)
+
+        # Display assistant response
+        with st.chat_message("assistant"):
+            st.markdown(answer)
+        # Add assistant response to chat history
+        st.session_state.messages.append({"role": "assistant", "content": answer})
 else:
-    st.info("Upload and process a PDF to start chatting.")
+    st.info("Upload and process PDFs to start chatting.")
