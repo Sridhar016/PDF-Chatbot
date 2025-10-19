@@ -1,9 +1,10 @@
 streamlit
 PyPDF2
-langchain
-langchain-community
-langchain-groq
+langchain>=0.1.14
+langchain-community>=0.0.6
+langchain-groq>=0.0.1
+langchain-text-splitters>=0.0.1
 faiss-cpu
 sentence-transformers
 python-dotenv
-langchain-text-splitters
+
