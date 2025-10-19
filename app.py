@@ -7,7 +7,9 @@ from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_groq import ChatGroq
 from langchain_core.documents import Document
-from langchain.chains.question_answering import load_qa_chain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 
 # Load environment variables from .env file
 load_dotenv()
@@ -40,17 +42,22 @@ def build_qa_chain(vector_store_path="faiss_index"):
         raise ValueError("Groq API key not found in Streamlit secrets.")
     llm = ChatGroq(groq_api_key=groq_api_key, model_name="llama-3.1-8b-instant")
 
-    # Load a QA chain
-    qa_chain = load_qa_chain(llm, chain_type="stuff")
-    # Create a RetrievalQA chain
-    from langchain.chains import RetrievalQA
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=True
+    # Define the prompt template
+    template = """Answer the question based only on the following context:
+    {context}
+
+    Question: {question}
+    """
+    prompt = ChatPromptTemplate.from_template(template)
+
+    # Create the chain using LCEL
+    chain = (
+        {"context": retriever, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
     )
-    return qa_chain
+    return chain
 
 # Initialize chat history
 if "messages" not in st.session_state:
@@ -101,7 +108,7 @@ if 'qa_chain' in st.session_state:
             st.markdown(prompt)
         # Get answer from QA chain
         with st.spinner("Querying the documents..."):
-            answer = st.session_state.qa_chain.run(prompt)
+            answer = st.session_state.qa_chain.invoke(prompt)
         # Display assistant response
         with st.chat_message("assistant"):
             st.markdown(answer)
