@@ -5,7 +5,7 @@ from PyPDF2 import PdfReader
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.chains.retrieval_qa.base import RetrievalQA
+from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 from langchain.chains.question_answering import load_qa_chain
 from langchain.schema import Document
