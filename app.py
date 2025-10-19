@@ -4,10 +4,10 @@ from dotenv import load_dotenv
 from PyPDF2 import PdfReader
 from langchain_community.embeddings import HuggingFaceBgeEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.chains import RetrievalQA
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_groq import ChatGroq
 from langchain.schema import Document
+from langchain.chains.question_answering import load_qa_chain
 
 # Load environment variables from .env file
 load_dotenv()
@@ -40,6 +40,10 @@ def build_qa_chain(vector_store_path="faiss_index"):
         raise ValueError("Groq API key not found in Streamlit secrets.")
     llm = ChatGroq(groq_api_key=groq_api_key, model_name="llama-3.1-8b-instant")
 
+    # Load a QA chain
+    qa_chain = load_qa_chain(llm, chain_type="stuff")
+    # Create a RetrievalQA chain
+    from langchain.chains import RetrievalQA
     qa_chain = RetrievalQA.from_chain_type(
         llm=llm,
         chain_type="stuff",
